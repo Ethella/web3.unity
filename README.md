@@ -24,3 +24,10 @@ to ensure a statement and patch release is made in a timely manner.
 
 Please email us a description of the flaw and any related information (e.g. reproduction steps, version) to
 [security at chainsafe dot io](mailto:security@chainsafe.io).
+
+
+### Magic Auth
+This is a forked web3 Unity repo to demo how to enable Magic Auth and interact with blockchain 
+
+For Magic Auth implementation via WebGL, please check `We3GLTemplates/Web3GL-2020x/web3/lib/index.js`
+
