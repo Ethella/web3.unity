@@ -3,6 +3,10 @@ mergeInto(LibraryManager.library, {
     window.web3gl.connect();
   },
 
+  Web3Logout: function () {
+    window.web3gl.logout();
+  },
+
   ConnectAccount: function () {
     var bufferSize = lengthBytesUTF8(window.web3gl.connectAccount) + 1;
     var buffer = _malloc(bufferSize);
@@ -65,7 +69,7 @@ mergeInto(LibraryManager.library, {
     var bufferSize = lengthBytesUTF8(window.web3gl.signMessageResponse) + 1;
     var buffer = _malloc(bufferSize);
     stringToUTF8(window.web3gl.signMessageResponse, buffer, bufferSize);
-    return buffer; 
+    return buffer;
   },
 
   SetSignMessageResponse: function (value) {
