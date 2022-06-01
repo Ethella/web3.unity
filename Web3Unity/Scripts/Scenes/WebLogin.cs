@@ -10,13 +10,16 @@ public class WebLogin : MonoBehaviour
     private static extern void Web3Connect();
 
     [DllImport("__Internal")]
+    private static extern void Web3Logout();
+
+    [DllImport("__Internal")]
     private static extern string ConnectAccount();
 
     [DllImport("__Internal")]
     private static extern void SetConnectAccount(string value);
 
     private int expirationTime;
-    private string account; 
+    private string account;
 
     public void OnLogin()
     {
@@ -45,6 +48,11 @@ public class WebLogin : MonoBehaviour
         PlayerPrefs.SetString("Account", "");
         // move to next scene
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex + 1);
+    }
+
+    public void OnLogout()
+    {
+        Web3Logout();
     }
 }
 #endif
