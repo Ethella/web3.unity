@@ -1,19 +1,20 @@
 // load network.js to get network/chain id
 document.body.appendChild(Object.assign(document.createElement("script"), { type: "text/javascript", src: "./network.js" }));
-// load web3modal to connect to wallet
-document.body.appendChild(Object.assign(document.createElement("script"), { type: "text/javascript", src: "./web3/lib/web3modal.js" }));
 // load web3js to create transactions
 document.body.appendChild(Object.assign(document.createElement("script"), { type: "text/javascript", src: "./web3/lib/web3.min.js" }));
 // uncomment to enable torus wallet
 // document.body.appendChild(Object.assign(document.createElement("script"), { type: "text/javascript", src: "https://unpkg.com/@toruslabs/torus-embed" }));
 // uncomment to enable walletconnect
 // document.body.appendChild(Object.assign(document.createElement("script"), { type: "text/javascript", src: "https://unpkg.com/@walletconnect/web3-provider@1.2.1/dist/umd/index.min.js" }));
+// enable Magic Auth
+document.body.appendChild(Object.assign(document.createElement("script"), { type: "text/javascript", src: "https://auth.magic.link/sdk" }));
 
 // load web3gl to connect to unity
 window.web3gl = {
   networkId: 0,
   connect,
   connectAccount: "",
+  logout,
   signMessage,
   signMessageResponse: "",
   sendTransaction,
@@ -31,59 +32,36 @@ paste this in inspector to connect to wallet:
 window.web3gl.connect()
 */
 async function connect() {
-  // uncomment to enable torus and walletconnect
-  const providerOptions = {
-    // torus: {
-    //   package: Torus,
-    // },
-    // walletconnect: {
-    //   package: window.WalletConnectProvider.default,
-    //   options: {
-    //     infuraId: "00000000000000000000000000000000",
-    //   },
-    // },
-  };
-
-  const web3Modal = new window.Web3Modal.default({
-    providerOptions,
-  });
-
-  web3Modal.clearCachedProvider();
 
   // set provider
-  provider = await web3Modal.connect();
-  web3 = new Web3(provider);
+  const magic = new Magic('YOUR_PUBLISHABLE_KEY');
+  window.magic = magic;
+  web3 = new Web3(magic.rpcProvider);
 
-  // set current network id
-  web3gl.networkId = parseInt(provider.chainId);
-
-  // if current network id is not equal to network id, then switch
-  if (web3gl.networkId != window.web3ChainId) {
-    try {
-      await window.ethereum.request({
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: `0x${window.web3ChainId.toString(16)}` }], // chainId must be in hexadecimal numbers
-      });
-    } catch {
-      // if network isn't added, pop-up metamask to add
-      await addEthereumChain();
-    }
-  }
+  await magic.auth.loginWithMagicLink({ email: 'jerry@magic.link' });
 
   // set current account
-  // provider.selectedAddress works for metamask and torus
-  // provider.accounts[0] works for walletconnect
-  web3gl.connectAccount = provider.selectedAddress || provider.accounts[0];
+  const address = (await web3.eth.getAccounts())[0]
+  web3gl.connectAccount = address;
 
-  // refresh page if player changes account
-  provider.on("accountsChanged", (accounts) => {
-    window.location.reload();
-  });
+  // Get user's balance in ether
+  const balance = web3.utils.fromWei(
+      await web3.eth.getBalance(address), // Balance is in wei
+  );
 
-  // update if player changes network
-  provider.on("chainChanged", (chainId) => {
-    web3gl.networkId = parseInt(chainId);
-  });
+  const metadata = await magic.user.getMetadata();
+
+  console.log('email', metadata.email);
+  console.log('address', address);
+  console.log('balance', balance);
+}
+
+/*
+paste this in inspector to connect to logout:
+window.web3gl.logout()
+*/
+async function logout() {
+  await window.magic.user.logout();
 }
 
 /*
@@ -111,19 +89,19 @@ window.web3gl.sendTransaction(to, value, gasLimit, gasPrice);
 async function sendTransaction(to, value, gasLimit, gasPrice) {
   const from = (await web3.eth.getAccounts())[0];
   web3.eth
-    .sendTransaction({
-      from,
-      to,
-      value,
-      gas: gasLimit ? gasLimit : undefined,
-      gasPrice: gasPrice ? gasPrice : undefined,
-    })
-    .on("transactionHash", (transactionHash) => {
-      window.web3gl.sendTransactionResponse = transactionHash;
-    })
-    .on("error", (error) => {
-      window.web3gl.sendTransactionResponse = error.message;
-    });
+      .sendTransaction({
+        from,
+        to,
+        value,
+        gas: gasLimit ? gasLimit : undefined,
+        gasPrice: gasPrice ? gasPrice : undefined,
+      })
+      .on("transactionHash", (transactionHash) => {
+        window.web3gl.sendTransactionResponse = transactionHash;
+      })
+      .on("error", (error) => {
+        window.web3gl.sendTransactionResponse = error.message;
+      });
 }
 
 /*
@@ -140,18 +118,18 @@ window.web3gl.sendContract(method, abi, contract, args, value, gasLimit, gasPric
 async function sendContract(method, abi, contract, args, value, gasLimit, gasPrice) {
   const from = (await web3.eth.getAccounts())[0];
   new web3.eth.Contract(JSON.parse(abi), contract).methods[method](...JSON.parse(args))
-    .send({
-      from,
-      value,
-      gas: gasLimit ? gasLimit : undefined,
-      gasPrice: gasPrice ? gasPrice : undefined,
-    })
-    .on("transactionHash", (transactionHash) => {
-      window.web3gl.sendContractResponse = transactionHash;
-    })
-    .on("error", (error) => {
-      window.web3gl.sendContractResponse = error.message;
-    });
+      .send({
+        from,
+        value,
+        gas: gasLimit ? gasLimit : undefined,
+        gasPrice: gasPrice ? gasPrice : undefined,
+      })
+      .on("transactionHash", (transactionHash) => {
+        window.web3gl.sendContractResponse = transactionHash;
+      })
+      .on("error", (error) => {
+        window.web3gl.sendContractResponse = error.message;
+      });
 }
 
 // add new wallet to in metamask
@@ -178,12 +156,12 @@ async function addEthereumChain() {
   };
 
   await window.ethereum
-    .request({
-      method: "wallet_addEthereumChain",
-      params: [params, account],
-    })
-    .catch(() => {
-      // I give up
-      window.location.reload();
-    });
+      .request({
+        method: "wallet_addEthereumChain",
+        params: [params, account],
+      })
+      .catch(() => {
+        // I give up
+        window.location.reload();
+      });
 }
